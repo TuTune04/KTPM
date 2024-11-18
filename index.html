@@ -1,0 +1,119 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chuyển đổi ảnh sang PDF tiếng Việt</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        form {
+            margin-bottom: 20px;
+        }
+        input[type="file"] {
+            margin: 10px 0;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #status {
+            margin-top: 20px;
+        }
+        #downloadPdf {
+            display: none;
+            margin-top: 10px;
+            padding: 10px 15px;
+            background-color: #2196F3;
+            color: white;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+        }
+        #downloadPdf:hover {
+            background-color: #0b7dda;
+        }
+    </style>
+</head>
+<body>
+    <h1>Chuyển đổi ảnh sang PDF tiếng Việt</h1>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <label for="images">Chọn các tệp ảnh:</label>
+        <input type="file" id="images" name="images" accept="image/*" multiple required>
+        <button type="submit">Tải lên và chuyển đổi</button>
+    </form>
+    <div id="statusContainer"></div>
+
+    <script>
+        document.getElementById("uploadForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const formData = new FormData();
+            const imageFiles = document.getElementById("images").files;
+            for (const file of imageFiles) {
+                formData.append("images", file);
+            }
+
+            try {
+                const response = await fetch("/upload", {
+                    method: "POST",
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const jobIds = data.jobIds;
+
+                    const statusContainer = document.getElementById("statusContainer");
+                    statusContainer.innerHTML = ""; // Xóa trạng thái trước đó
+
+                    jobIds.forEach((jobId, index) => {
+                        // Tạo một div trạng thái cho mỗi job
+                        const statusDiv = document.createElement("div");
+                        statusDiv.id = `status-${jobId}`;
+                        statusDiv.innerHTML = `File ${index + 1}: Đang xử lý...`;
+                        statusContainer.appendChild(statusDiv);
+
+                        // Kiểm tra trạng thái của mỗi job
+                        const intervalId = setInterval(async () => {
+                            const statusResponse = await fetch(`/status/${jobId}`);
+                            const statusData = await statusResponse.json();
+
+                            if (statusData.status === 'completed') {
+                                clearInterval(intervalId);
+                                statusDiv.innerHTML = `File ${index + 1}: Hoàn thành! `;
+                                const downloadLink = document.createElement("a");
+                                downloadLink.href = statusData.downloadUrl;
+                                downloadLink.target = "_blank";
+                                downloadLink.textContent = "Tải về file PDF";
+                                statusDiv.appendChild(downloadLink);
+                            } else if (statusData.status === 'failed') {
+                                clearInterval(intervalId);
+                                statusDiv.innerHTML = `File ${index + 1}: Đã xảy ra lỗi trong quá trình xử lý.`;
+                            } else {
+                                statusDiv.innerHTML = `File ${index + 1}: Đang xử lý...`;
+                            }
+                        }, 2000);
+                    });
+                } else {
+                    const errorText = await response.text();
+                    alert("Đã xảy ra lỗi: " + errorText);
+                }
+            } catch (error) {
+                alert("Đã xảy ra lỗi trong quá trình gửi yêu cầu: " + error.message);
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,15 +1,100 @@
-<!-- public/index.html -->
+<!-- index.html -->
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <title>Upload Images</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chuyển đổi ảnh sang PDF tiếng Việt</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        form {
+            margin-bottom: 20px;
+        }
+        input[type="file"] {
+            margin: 10px 0;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #statusContainer {
+            margin-top: 20px;
+        }
+        .download-link {
+            display: block;
+            margin-top: 10px;
+            padding: 10px 15px;
+            background-color: #2196F3;
+            color: white;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            width: fit-content;
+        }
+        .download-link:hover {
+            background-color: #0b7dda;
+        }
+    </style>
 </head>
 <body>
-  <h1>Upload Images</h1>
-  <form action="/upload" method="post" enctype="multipart/form-data">
-    <input type="file" name="images" accept="image/*" multiple required />
-    <button type="submit">Upload and Get PDF</button>
-  </form>
+    <h1>Chuyển đổi ảnh sang PDF tiếng Việt</h1>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <label for="images">Chọn các tệp ảnh:</label>
+        <input type="file" id="images" name="images" accept="image/*" multiple required>
+        <button type="submit">Tải lên và chuyển đổi</button>
+    </form>
+    <div id="statusContainer"></div>
+
+    <script>
+        document.getElementById("uploadForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const formData = new FormData();
+            const imageFiles = document.getElementById("images").files;
+            for (const file of imageFiles) {
+                formData.append("images", file);
+            }
+
+            try {
+                const response = await fetch("/upload", {
+                    method: "POST",
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const downloadUrls = data.downloadUrls;
+
+                    const statusContainer = document.getElementById("statusContainer");
+                    statusContainer.innerHTML = ""; // Xóa trạng thái trước đó
+
+                    downloadUrls.forEach((url, index) => {
+                        const link = document.createElement("a");
+                        link.href = url;
+                        link.target = "_blank";
+                        link.className = "download-link";
+                        link.textContent = `Tải về file PDF ${index + 1}`;
+                        statusContainer.appendChild(link);
+                    });
+                } else {
+                    const errorText = await response.text();
+                    alert("Đã xảy ra lỗi: " + errorText);
+                }
+            } catch (error) {
+                alert("Đã xảy ra lỗi trong quá trình gửi yêu cầu: " + error.message);
+            }
+        });
+    </script>
 </body>
 </html>

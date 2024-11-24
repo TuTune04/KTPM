@@ -21,6 +21,7 @@
     "open-google-translator": "^1.0.5",
     "pdfkit": "^0.15.0",
     "redis": "^4.7.0",
+    "sharp": "^0.33.5",
     "tesseract-ocr": "^1.0.0",
     "tesseract.js": "^5.1.1"
   }

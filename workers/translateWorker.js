@@ -12,7 +12,12 @@ translateQueue.process(3, async (job) => {
     // Thêm công việc vào hàng đợi PDF
     await pdfQueue.add({ text: translatedText, jobId }, { jobId });
   } catch (error) {
-    console.error('Translate Error:', error);
-    throw error;
+    console.error(`Translate Error for JobId ${jobId}:`, error);
+    // Thử lại công việc nếu có lỗi 
+    if (job.attemptsMade < 2) {
+      throw error;
+    } else {
+      job.moveToFailed({ message: 'Translate failed after 2 attempts' }, true);
+    }
   }
 });

@@ -1,12 +1,22 @@
 // index.js
+require('dotenv').config();
 const express = require("express");
 const multer = require("multer");
 const path = require("path");
-const fs = require("fs").promises;
+const fs = require('fs');
+const fsPromises = require('fs').promises;
+const config = require('./config');
 const { ocrQueue, pdfQueue } = require("./queues");
+const cacheService = require('./services/cache');
+const cdnService = require('./services/cdn');
 
 const app = express();
 const port = 3000;
+
+// Hàm kiểm tra token đơn giản
+function validateToken(token) {
+  return true; // Tạm thời return true để test
+}
 
 // Cấu hình multer để lưu tệp tải lên và kiểm tra định dạng
 const upload = multer({
@@ -75,36 +85,72 @@ app.use((err, req, res, next) => {
   next(err);
 });
 
-app.get("/output/:jobId", (req, res) => {
-  const token = req.query.token; // Yêu cầu token để truy cập file
-  if (!validateToken(token)) {
-    return res.status(403).send("Không được phép.");
+app.get("/output/:jobId", async (req, res) => {
+  const { jobId } = req.params;
+  
+  try {
+    const cacheKey = `pdf:${jobId}`;
+    const cachedResult = await cacheService.get(cacheKey);
+
+    if (cachedResult && cachedResult.pdfUrl) {
+      return res.redirect(cachedResult.pdfUrl);
+    }
+
+    // Kiểm tra file có tồn tại không
+    const pdfPath = path.join(__dirname, 'output', `${jobId}.pdf`);
+    try {
+      await fsPromises.access(pdfPath);
+      // Nếu file tồn tại, tạo URL CDN
+      const cdnUrl = cdnService.getPublicUrl(`pdfs/${jobId}.pdf`);
+      
+      // Cache kết quả
+      await cacheService.set(cacheKey, { pdfUrl: cdnUrl }, 24 * 3600);
+      
+      return res.redirect(cdnUrl);
+    } catch (err) {
+      return res.status(404).send('File không tồn tại');
+    }
+  } catch (error) {
+    console.error('Output Error:', error);
+    res.status(500).send('Internal Server Error');
   }
-  res.sendFile(path.join(__dirname, "output", `${req.params.jobId}.pdf`));
 });
 
 // Endpoint để kiểm tra trạng thái của job
 app.get("/status/:jobId", async (req, res) => {
   const { jobId } = req.params;
+  const cacheKey = `pdf:${jobId}`;
 
-  // Kiểm tra trạng thái trong hàng đợi PDF
-  const job = await pdfQueue.getJob(jobId);
+  try {
+    const cachedResult = await cacheService.get(cacheKey);
+    if (cachedResult) {
+      return res.json(cachedResult);
+    }
 
-  if (job) {
+    const job = await pdfQueue.getJob(jobId);
+    if (!job) {
+      return res.json({ status: 'not_found' });
+    }
+
     const state = await job.getState();
+    const result = {
+      status: state,
+      ...(state === 'completed' && {
+        downloadUrl: cdnService.getPublicUrl(`pdfs/${jobId}.pdf`)
+      })
+    };
 
     if (state === 'completed') {
-      // File PDF đã sẵn sàng
-      res.json({ status: 'completed', downloadUrl: `/output/${jobId}.pdf` });
-    } else if (state === 'failed') {
-      res.json({ status: 'failed' });
-    } else {
-      res.json({ status: 'processing' });
+      await cacheService.set(cacheKey, result, 24 * 3600);
     }
-  } else {
-    res.json({ status: 'processing' });
+
+    res.json(result);
+  } catch (error) {
+    console.error('Status Check Error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 });
+
 
 // Bắt đầu server
 app.listen(port, () => {
@@ -115,3 +161,9 @@ app.listen(port, () => {
   require('./workers/translateWorker');
   require('./workers/pdfWorker');
 });
+
+// Thêm vào đầu file sau các require
+const outputDir = path.join(__dirname, 'output');
+if (!fs.existsSync(outputDir)) {
+  fs.mkdirSync(outputDir);
+}

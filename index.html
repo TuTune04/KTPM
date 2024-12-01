@@ -96,53 +96,54 @@
                     const jobIds = data.jobIds;
 
                     const statusContainer = document.getElementById("statusContainer");
-                    statusContainer.innerHTML = ""; // Xóa trạng thái trước đó
+                    statusContainer.innerHTML = "";
 
                     const downloadAllButton = document.getElementById("downloadAll");
                     downloadAllButton.style.display = "none";
                     let downloadLinks = [];
 
                     jobIds.forEach((jobId, index) => {
-                        // Tạo một div trạng thái cho mỗi job
                         const statusDiv = document.createElement("div");
                         statusDiv.id = `status-${jobId}`;
                         statusDiv.className = "status";
                         statusDiv.innerHTML = `File ${index + 1}: Đang xử lý...`;
                         statusContainer.appendChild(statusDiv);
 
-                        // Kiểm tra trạng thái của mỗi job
                         const intervalId = setInterval(async () => {
-                            const statusResponse = await fetch(`/status/${jobId}`);
-                            const statusData = await statusResponse.json();
+                            try {
+                                const statusResponse = await fetch(`/status/${jobId}`);
+                                const statusData = await statusResponse.json();
 
-                            if (statusData.status === 'completed') {
-                                clearInterval(intervalId);
-                                statusDiv.innerHTML = `File ${index + 1}: Hoàn thành! `;
-                                const downloadLink = document.createElement("a");
-                                downloadLink.href = statusData.downloadUrl;
-                                downloadLink.target = "_blank";
-                                downloadLink.textContent = "Tải về file PDF";
-                                statusDiv.appendChild(downloadLink);
-                                downloadLinks.push(statusData.downloadUrl);
+                                if (statusData.status === 'completed') {
+                                    clearInterval(intervalId);
+                                    statusDiv.innerHTML = `
+                                        <div style="display: flex; align-items: center; gap: 10px; justify-content: center;">
+                                            <span>File ${index + 1}: ${statusData.message}</span>
+                                            <a href="${statusData.pdfUrl}" target="_blank" rel="noopener noreferrer">Tải file PDF</a>
+                                        </div>
+                                    `;
+                                    downloadLinks.push(statusData.pdfUrl);
 
-                                if (downloadLinks.length === jobIds.length) {
-                                    downloadAllButton.style.display = "inline-block";
-                                    downloadAllButton.onclick = () => {
-                                        downloadLinks.forEach(link => {
-                                            const a = document.createElement("a");
-                                            a.href = link;
-                                            a.download = link.split('/').pop();
-                                            document.body.appendChild(a);
-                                            a.click();
-                                            document.body.removeChild(a);
-                                        });
-                                    };
+                                    if (downloadLinks.length === jobIds.length) {
+                                        downloadAllButton.style.display = "block";
+                                        downloadAllButton.onclick = () => {
+                                            downloadLinks.forEach((url, i) => {
+                                                setTimeout(() => {
+                                                    window.open(url, '_blank');
+                                                }, i * 500);
+                                            });
+                                        };
+                                    }
+                                } else if (statusData.status === 'failed') {
+                                    clearInterval(intervalId);
+                                    statusDiv.innerHTML = `File ${index + 1}: Đã xảy ra lỗi trong quá trình xử lý.`;
+                                } else {
+                                    statusDiv.innerHTML = `File ${index + 1}: Đang xử lý...`;
                                 }
-                            } else if (statusData.status === 'failed') {
+                            } catch (error) {
                                 clearInterval(intervalId);
-                                statusDiv.innerHTML = `File ${index + 1}: Đã xảy ra lỗi trong quá trình xử lý.`;
-                            } else {
-                                statusDiv.innerHTML = `File ${index + 1}: Đang xử lý...`;
+                                statusDiv.innerHTML = `File ${index + 1}: Lỗi khi kiểm tra trạng thái.`;
+                                console.error('Status Check Error:', error);
                             }
                         }, 2000);
                     });

@@ -7,7 +7,7 @@ class CacheService {
       host: config.redis.host,
       port: config.redis.port,
       keyPrefix: 'cache:',
-      // Thêm các tùy chọn khác nếu cần
+
       retryStrategy: (times) => {
         const delay = Math.min(times * 50, 2000);
         return delay;

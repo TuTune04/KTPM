@@ -40,7 +40,7 @@ pdfQueue.process(10, async (job) => {
       generatedAt: new Date().toISOString()
     };
     
-    await cacheService.set(cacheKey, result, 24 * 3600);
+    await cacheService.set(cacheKey, result, 600);
     
     return result;
   } catch (error) {

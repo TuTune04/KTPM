@@ -25,16 +25,16 @@ const upload = multer({
     fileSize: process.env.MAX_FILE_SIZE || 5 * 1024 * 1024, 
     files: process.env.MAX_FILES || 5 
   },
-  fileFilter: (req, file, cb) => {
-    const filetypes = /jpeg|jpg|png/;
-    const mimetype = filetypes.test(file.mimetype);
+  // fileFilter: (req, file, cb) => {
+  //   const filetypes = /jpeg|jpg|png/;
+  //   const mimetype = filetypes.test(file.mimetype);
 
-    if (mimetype) {
-      cb(null, true);
-    } else {
-      cb(new Error('Định dạng tệp không hợp lệ!'));
-    }
-  }
+  //   if (mimetype) {
+  //     cb(null, true);
+  //   } else {
+  //     cb(new Error('Định dạng tệp không hợp lệ!'));
+  //   }
+  // }
 });
   
 
